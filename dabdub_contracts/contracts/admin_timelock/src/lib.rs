@@ -31,6 +31,9 @@ use soroban_sdk::{
 
 const MIN_DELAY_LEDGERS: u32 = 17_280;
 
+/// Contract ABI version. Bumped on every WASM upgrade.
+const VERSION: u32 = 1;
+
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum ChangeStatus {
@@ -58,6 +61,7 @@ pub enum DataKey {
     Counter,
     Change(BytesN<32>),
     PendingList,
+    Version,
 }
 
 // ---------------------------------------------------------------------------
@@ -106,6 +110,15 @@ impl AdminTimelockContract {
         env.storage()
             .instance()
             .set(&DataKey::PendingList, &Vec::<BytesN<32>>::new(&env));
+        env.storage().instance().set(&DataKey::Version, &VERSION);
+    }
+
+    /// Return the contract ABI version.
+    pub fn get_version(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&DataKey::Version)
+            .unwrap_or(VERSION)
     }
 
     /// Queue a parameter change. Returns the change_id.
@@ -259,68 +272,6 @@ impl AdminTimelockContract {
     }
 
     /// Transfer admin authority to a new address. Irreversible without the new admin's key.
-    pub fn rotate_admin(env: Env, caller: Address, new_admin: Address) {
-        caller.require_auth();
-        Self::require_admin(&env, &caller);
+   
 
-        let old_admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
-        env.storage().instance().set(&DataKey::Admin, &new_admin);
-
-        env.events().publish(
-            ("TIMELOCK", "admin_rotated"),
-            AdminRotatedEvent { old_admin, new_admin },
-        );
-    }
-
-    // ------------------------------------------------------------------
-    // Queries
-    // ------------------------------------------------------------------
-
-    pub fn get_change(env: Env, change_id: BytesN<32>) -> ScheduledChange {
-        env.storage()
-            .persistent()
-            .get(&DataKey::Change(change_id))
-            .expect("Change not found")
-    }
-
-    pub fn get_admin(env: Env) -> Address {
-        env.storage().instance().get(&DataKey::Admin).unwrap()
-    }
-
-    /// Return the IDs of all currently pending changes.
-    pub fn list_pending(env: Env) -> Vec<BytesN<32>> {
-        env.storage()
-            .instance()
-            .get(&DataKey::PendingList)
-            .unwrap_or_else(|| Vec::new(&env))
-    }
-
-    // ------------------------------------------------------------------
-    // Helpers
-    // ------------------------------------------------------------------
-
-    fn require_admin(env: &Env, caller: &Address) {
-        let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
-        if caller != &admin {
-            panic!("Not admin");
-        }
-    }
-
-    fn remove_from_pending(env: &Env, change_id: &BytesN<32>) {
-        let pending: Vec<BytesN<32>> = env
-            .storage()
-            .instance()
-            .get(&DataKey::PendingList)
-            .unwrap_or_else(|| Vec::new(env));
-
-        let mut updated = Vec::new(env);
-        for id in pending.iter() {
-            if &id != change_id {
-                updated.push_back(id);
-            }
-        }
-        env.storage()
-            .instance()
-            .set(&DataKey::PendingList, &updated);
-    }
-}
+/* … truncated 2098 chars — edit only what you need near the top … */
