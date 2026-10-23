@@ -34,6 +34,18 @@ const MIN_DELAY_LEDGERS: u32 = 17_280;
 /// Contract ABI version. Bumped on every WASM upgrade.
 const VERSION: u32 = 1;
 
+// ---------------------------------------------------------------------------
+// Standardised error codes (PascalCase) — see issue #1314.
+// Shared format across all contracts until `#[contracterror]` enums land.
+// ---------------------------------------------------------------------------
+mod errors {
+    pub const NOT_ADMIN: &str = "NotAdmin";
+    pub const INVALID_DELAY: &str = "InvalidDelay";
+    pub const CHANGE_NOT_PENDING: &str = "ChangeNotPending";
+    pub const DELAY_NOT_ELAPSED: &str = "DelayNotElapsed";
+    pub const CANNOT_PRUNE_PENDING: &str = "CannotPrunePending";
+}
+
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum ChangeStatus {
@@ -134,7 +146,7 @@ impl AdminTimelockContract {
         Self::require_admin(&env, &caller);
 
         if delay_ledgers < MIN_DELAY_LEDGERS {
-            panic!("delay_ledgers must be >= 17280 (24 h)");
+            panic!("{}", errors::INVALID_DELAY);
         }
 
         let counter: u64 = env.storage().instance().get(&DataKey::Counter).unwrap();
@@ -204,10 +216,10 @@ impl AdminTimelockContract {
         let mut change = Self::get_change(env.clone(), change_id.clone());
 
         if change.status != ChangeStatus::Pending {
-            panic!("Change is not pending");
+            panic!("{}", errors::CHANGE_NOT_PENDING);
         }
         if env.ledger().sequence() < change.execute_after {
-            panic!("Delay period has not elapsed");
+            panic!("{}", errors::DELAY_NOT_ELAPSED);
         }
 
         change.status = ChangeStatus::Applied;
@@ -235,7 +247,7 @@ impl AdminTimelockContract {
         let mut change = Self::get_change(env.clone(), change_id.clone());
 
         if change.status != ChangeStatus::Pending {
-            panic!("Change is not pending");
+            panic!("{}", errors::CHANGE_NOT_PENDING);
         }
 
         change.status = ChangeStatus::Cancelled;
@@ -263,7 +275,7 @@ impl AdminTimelockContract {
         let change = Self::get_change(env.clone(), change_id.clone());
 
         if change.status == ChangeStatus::Pending {
-            panic!("Cannot prune a pending change");
+            panic!("{}", errors::CANNOT_PRUNE_PENDING);
         }
 
         env.storage()
